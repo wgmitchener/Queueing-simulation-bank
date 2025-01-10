@@ -11,14 +11,22 @@
 
 %% Set up
 
-% Arrival rate
-lambda = 1/2;
+% To check, these are the numbers for the hospital p725
+% and time is in hours:
+%lambda = 2;
+%mu = 3;
 
-% Departure (service) rate
-mu = 1/1.5;
+% For the bank:
+% All time is in minutes
+
+% Arrival rate: 40 per hour
+lambda = 40/60;
+
+% Departure (service) rate: 1 over 2 per minute
+mu = 1/2;
 
 % Number of serving stations
-s = 1;
+s = 2;
 
 % Run 100 samples of the queue.
 NumSamples = 100;
@@ -26,18 +34,29 @@ NumSamples = 100;
 % Each sample is run up to a maximum time of 1000.
 MaxTime = 1000;
 
-%% Numbers from theory for M/M/1 queue
+%% Numbers from theory for M/M/s queue
 
 % Compute P(1+n) = $P_n$ = probability of finding the system in state $n$
 % in the long term.
-% Note that this calculation assumes s=1.
-rho = lambda / mu;
-P0 = 1 - rho;
-nMax = 10;
+r = lambda / mu;
+rho = r/s;
+
+% This is the stuff in brackets P0 = 1/[...] on p722 of the book
+recip_P0 = 1 + r^s / (factorial(s) * (1 - rho));
+for n = 1:s-1
+    recip_P0 = recip_P0 + r^n / factorial(n);
+end
+
+P0 = 1/recip_P0;
+
+nMax = 20;
 P = zeros([1, nMax+1]);
-P(1) = P0;
-for n = 1:nMax
-    P(1+n) = P0 * rho^n;
+for n = 0:nMax
+    if n <= s
+        P(n+1) = P0 * r^n / factorial(n);
+    else
+        P(n+1) = P0 * r^n / (factorial(s)*s^(n-s));
+    end
 end
 
 %% Run simulation samples
@@ -78,17 +97,6 @@ end
 % Count how many customers are in the system at each log entry for each
 % sample run.  There are two ways to do this.  You only have to do one of
 % them.
-
-% Option one: Use a for loop.
-NumInSystemSamples = cell([NumSamples, 1]);
-for SampleNum = 1:NumSamples
-    q = QSamples{SampleNum};
-    % Pull out samples of the number of customers in the queue system. Each
-    % sample run of the queue results in a column of samples of customer
-    % counts, because tables like q.Log allow easy extraction of whole
-    % columns like this.
-    NumInSystemSamples{SampleNum} = q.Log.NumWaiting + q.Log.NumInService;
-end
 
 % Option two: Map a function over the cell array of SericeQueue objects.
 % The @(q) ... expression is shorthand for a function that takes a
@@ -189,29 +197,6 @@ exportgraphics(fig, "Number in system histogram.pdf");
 % entries for each sample ServiceQueue, we'll look at the list of served
 % customers in each sample ServiceQueue.
 
-% Option one: Use a for loop.
-TimeInSystemSamples = cell([NumSamples, 1]);
-for SampleNum = 1:NumSamples
-    q = QSamples{SampleNum};
-    % The next command has many parts.
-    %
-    % q.Served is a row vector of all customers served in this particular
-    % sample.
-    % The ' on q.Served' transposes it to a column.
-    %
-    % The @(c) ... expression below says given a customer c, compute its
-    % departure time minus its arrival time, which is how long c spent in
-    % the system.
-    %
-    % cellfun(@(c) ..., q.Served') means to compute the time each customer
-    % in q.Served spent in the system, and build a column vector of the
-    % results.
-    %
-    % The column vector is stored in TimeInSystemSamples{SampleNum}.
-    TimeInSystemSamples{SampleNum} = ...
-        cellfun(@(c) c.DepartureTime - c.ArrivalTime, q.Served');
-end
-
 % Option two: Use cellfun twice.
 % The outer call to cellfun means do something to each ServiceQueue object
 % in QSamples.
@@ -241,15 +226,15 @@ ax = nexttile(t);
 % left-most and right-most edges automatically.
 % Instead, you could specify the left-most and right-most edges explicitly.
 % Using BinEdges=0:0.5:60 means to use bins (0, 0.5), (0.5, 1.0), ...
-h = histogram(ax, TimeInSystem, Normalization="probability", BinWidth=0.5);
-
+h = histogram(ax, TimeInSystem, Normalization="probability", ...
+    BinWidth=0.5);
 % Add titles and labels and such.
 title(ax, "Time in the system");
 xlabel(ax, "Time");
 ylabel(ax, "Probability");
 
 % Set ranges on the axes.
-ylim(ax, [0, 0.1]);
+ylim(ax, [0, 0.12]);
 xlim(ax, [-1, 21]);
 
 % Wait for MATLAB to catch up.
@@ -257,3 +242,23 @@ pause(2);
 
 % Save the picture as a PDF file.
 exportgraphics(fig, "Time in system histogram.pdf");
+
+%% Other statistics
+
+% Follow p723
+
+% Lq = expected number waiting
+Lq = P0 * r^s * rho / (factorial(s) * (1-rho)^2);
+fprintf("Expected number waiting Lq = %f\n", Lq);
+
+% L = expected number in system
+L = Lq + r;
+fprintf("Expected number in system L = %f\n", L);
+
+% Wq = expected time waiting
+Wq = Lq / lambda;
+fprintf("Expected time waiting Wq = %f\n", Wq);
+
+% W = expected time in system
+W = Wq + 1/mu;
+fprintf("Expected time in system W = %f\n", W);

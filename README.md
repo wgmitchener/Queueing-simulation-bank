@@ -1,5 +1,6 @@
-# Queueing-simulation-helper
+# Queueing-simulation-bank
 A queueing simulation in Matlab.
+It's based on problem 17.2-4 from Hillier & Lieberman 11e.
 
 This is an M/M/s queue simulation.
 The overall architecture is event driven.

@@ -245,6 +245,10 @@ exportgraphics(fig, "Time in system histogram.pdf");
 
 %% Other statistics
 
+for n = 0:5
+    fprintf("P_%d = %f\n", n, P(n+1));
+end
+
 % Follow p723
 
 % Lq = expected number waiting
